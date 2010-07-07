@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-Mojolicious::Guides::FAQ - Чатсто Задаваемые Вопросы
+Mojolicious::Guides::FAQ - Часто Задаваемые Вопросы
 
 =head1 ОПИСАНИЕ
 
