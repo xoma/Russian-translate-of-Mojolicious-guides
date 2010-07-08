@@ -1,5 +1,5 @@
-# Copyright (C) 2008-2010, Sebastian Riedel.
-
+# Создано на основе оригинальной англоязычной документации, главным разработчиком которой является Sebastian Riedel.
+=encoding utf8 
 =head1 NAME
 
 Mojolicious::Guides::FAQ - Часто Задаваемые Вопросы
