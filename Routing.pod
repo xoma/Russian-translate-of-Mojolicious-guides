@@ -1,0 +1,611 @@
+# Copyright (C) 2008-2010, Sebastian Riedel.
+
+=encoding utf8
+
+=head1 НАЗВАНИЕ
+
+Mojolicious::Guides::Routing - Маршрутизация
+
+=head1 ОПИСАНИЕ
+
+Этот документ содержит простое и занимательное руководство по работе с L<Mojolicious> router и его основные принципы.
+
+=head1 КОНЦЕПЦИЯ
+
+Основы, которые должен знать каждый разработчик L<Mojolicious>.
+
+=head2 Диспетчер
+
+Основой каждого веб фреймворка является небольшой черный ящик, связывающий входящие запросы с кодом, генерующим соответствующий ответ.
+
+GET /user/show/1 -> $self->render(text => 'Sebastian!');
+
+Этот черный ящик обычно называют диспетчером. Существует множество реализаций, использующие различные подходы для создания таких связей, но практически все так или иначе представляют отображение пути запроса на генератор ответа.
+
+/user/show/1 -> $self->render(text => 'Sebastian!');
+/user/show/2 -> $self->render(text => 'Sara!');
+/user/show/3 -> $self->render(text => 'Baerbel!');
+/user/show/4 -> $self->render(text => 'Wolfgang!');
+
+Конечно возможно сделать все эти связи статичными, но безусловно это не эффективно. По этому часто применяются регулярные выражения, чтобы сделать процесс маршрутизации более динамичным.
+
+qr|/user/show/(\d+)| -> $self->render(text => $users{$1});
+
+В современных диспетчерах есть доступ ко всему, что может предложить HTTP. Можно использовать не только путь запроса, но и, к примеру, метод запроса или заголовки C<Host>, C<User-Agent> и C<Accept>.
+
+GET /user/show/23 HTTP/1.1
+Host: mojolicious.org
+User-Agent: Mozilla/5.0 (compatible; Mojolicious; Perl)
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+
+=head2 Маршруты
+
+Хотя регулярные выражения достаточно мощные они не очень понятно выглядят и слишком избыточны для простого сравнения путей.
+
+qr|/user/show/(\d+)| -> $self->render(text => $users{$1});
+
+Это как раз тот случай, когда можно применить маршруты. Они были спроектированы специально для представления путей со специальными метками (placeholder'ами).
+
+/user/show/:id -> $self->render(text => $users{$id});
+
+Единственная разница между статическим путем и маршрутом, приведенным выше, - это специальная метка C<:id>. В маршруте может быть более одной метки в любом месте.
+
+/user/:action/:id
+
+Основная концепция маршрутов L<Mojolicious> - это то что извлеченные значение меток превращаются в хеш.
+
+/user/show/23 -> /user/:action/:id -> {action => 'show', id => 23}
+
+Этот хэш - центр каждого L<Mojolicious> приложения, вы узнаете об этом чуть позже. Внутри приложения маршруты компилируются в регулярные выражения, по этому вы может использовать лучшие стороны обоих подходов.
+
+/user/show/:id -> qr/(?-xism:^\/user\/show/([^\/\.]+))/
+
+=head2 Обратимость
+
+Еще один огромный плюс маршрутов относительно регулярных выражения - это возможность проделать обратную операцию без особых проблем, выделенные значения могут быть подставлены как путь в любое время.
+
+/sebastian -> /:name -> {name => 'sebastian'}
+{name => 'sebastian'} -> /:name -> /sebastian
+
+=head2 Универсальные метки
+
+Универсальные метки - самый простой вариант меток. Они захватывают любые символы кроме C</> и С<.>.
+
+/hello -> /:name/hello -> undef
+/sebastian/23/hello -> /:name/hello -> undef
+/sebastian.23/hello -> /:name/hello -> undef
+/sebastian/hello -> /:name/hello -> {name => 'sebastian'}
+/sebastian23/hello -> /:name/hello -> {name => 'sebastian23'}
+/sebastian 23/hello -> /:name/hello -> {name => 'sebastian 23'}
+
+Метку можно окружить круглыми скобками, если есть необходимость отделить ее от другого текста.
+
+/hello -> /(:name)hello -> undef
+/sebastian/23hello -> /(:name)hello -> undef
+/sebastian.23hello -> /(:name)hello -> undef
+/sebastianhello -> /(:name)hello -> {name => 'sebastian'}
+/sebastian23hello -> /(:name)hello -> {name => 'sebastian23'}
+/sebastian 23hello -> /(:name)hello -> {name => 'sebastian 23'}
+
+=head2 Упрощенные метки
+
+Очень похожи на универсальные, за исключением обязательных скобок и совпадением со всеми символами кроме C</>.
+
+/hello -> /(.name)/hello -> undef
+/sebastian/23/hello -> /(.name)/hello -> undef
+/sebastian.23/hello -> /(.name)/hello -> {name => 'sebastian.23'}
+/sebastian/hello -> /(.name)/hello -> {name => 'sebastian'}
+/sebastian23/hello -> /(.name)/hello -> {name => 'sebastian23'}
+/sebastian 23/hello -> /(.name)/hello -> {name => 'sebastian 23'}
+
+=head2 Метки с джокером
+
+Похожи на упрошенные, но захватывают все подряд символы.
+
+/hello -> /(*name)/hello -> undef
+/sebastian/23/hello -> /(*name)/hello -> {name => 'sebastian/23'}
+/sebastian.23/hello -> /(*name)/hello -> {name => 'sebastian.23'}
+/sebastian/hello -> /(*name)/hello -> {name => 'sebastian'}
+/sebastian23/hello -> /(*name)/hello -> {name => 'sebastian23'}
+/sebastian 23/hello -> /(*name)/hello -> {name => 'sebastian 23'}
+
+=head1 ОСНОВЫ
+
+Часто используемые фичи о которых должен знать каждый разработчик.
+
+=head2 Простой маршрут
+
+В кадом L<Mojolicious> приложении есть объект маршрутизатор, который можно использовать для создания маршрутов.
+
+# Приложение
+package MyApp;
+use base 'Mojolicious';
+
+sub startup {
+my $self = shift;
+
+# Маршрутизатор
+my $r = $self->routes;
+
+# Маршрут
+$r->route('/welcome')->to(controller => 'foo', action => 'welcome');
+}
+
+1;
+
+Простой статический маршрут, показанный выше, загрузит модуль C<MyApp::Foo>, создаст экземпляр класса и вызовет метод C<welcome>.
+
+# Контроллер
+package MyApp::Foo;
+use base 'Mojolicious::Controller';
+
+# Действие
+sub welcome {
+my $self = shift;
+
+# Ответ
+$self->render(text => 'Hello there!');
+}
+
+1;
+
+Маршруты обычно настраиваются в методе C<startup> приложения, но объект маршрутизатор доступен везде (в том числе на этапе исполнения).
+
+=head2 Пункт назначения маршрута
+
+После того как вы начали новый маршрут, вызвав метод C<route>, вы также можете вызвать по цепочке метод C<to> и указать его пункт назначения. Используйте простой хеш для описания.
+
+# /welcome -> {controller => 'foo', action => 'welcome'}
+$r->route('/welcome')->to(controller => 'foo', action => 'welcome');
+
+Когда маршрут совпадет с входящим запросом, содержимое переданного хеша используется для поиска кода, который сгенерирует ответ.
+
+=head2 Нычка (Stash)
+
+The generated hash of a matching route is actually the center of the whole
+L<Mojolicious> request cycle.
+We call it the stash, and it is basically a global namespace that persists
+until a response has been generated.
+
+# /bye -> {controller => 'foo', action => 'bye', mymessage => 'Bye!'}
+$r->route('/bye')
+->to(controller => 'foo', action => 'bye', mymessage => 'Bye!');
+
+Есть несколько специальных stash значений, например таких как, C<controller> и C<action>, но их можно переопределить любыми данными, необходимыми для генерации ответа. После обработки запроса stash значения могут быть изменены в любое время.
+
+=head2 Специальные значения в stash (С<controller> и C<action>)
+
+When the dispatcher sees C<controller> and C<action> values in the stash it
+will always try to turn them into a class and method to dispatch to.
+The C<controller> value gets camelized and prefixed with a C<namespace>
+(defaulting to the applications class) while the action value is not changed
+at all, because of this both values are case sensitive.
+
+# Приложение
+package MyApp;
+use base 'Mojolicious';
+
+sub startup {
+my $self = shift;
+
+# Маршрутизатор
+my $r = $self->routes;
+
+# /bye -> {controller => 'foo', action => 'bye'} -> MyApp::Foo->bye
+$r->route('/bye')->to(controller => 'foo', action => 'bye');
+
+1;
+
+# Контроллер
+package MyApp::Foo;
+use base 'Mojolicious::Controller';
+
+# Действие
+sub bye {
+my $self = shift;
+
+# Ответ
+$self->render(text => 'Good bye!');
+}
+
+1;
+
+Классы контроллеров идеальны для организации кода в больших проектах. Есть множество других стратегий обработки запроса, но так, как контроллеры используются чаще всего, для них есть короткая форма записи C<controller#action>.
+
+    # /bye -> {controller => 'foo', action => 'bye', mymessage => 'Bye!'}
+    $r->route('/bye')->to('foo#bye', mymessage => 'Bye!');
+
+During camelization C<-> gets replaced with C<::>, this allows multi level
+C<controller> hierarchies.
+
+# / -> {controller => 'foo-bar', action => 'hi'} -> MyApp::Foo::Bar->hi
+$r->route('/')->to('foo-bar#hi');
+
+=head2 Маршрут к классу (C<namespace>)
+
+Время от времени может возникнуть необходимость обработки запроса в совершенно другое пространство имен C<namespace>.
+
+ # /bye -> MyApp::Controller::Foo->bye
+$r->route('/bye')
+->to(namespace => 'MyApp::Controller::Foo', action => 'bye');
+
+Имя контроллера C<controller> всегда добавляется к пространству имен C<namespace>, если оно установлено.
+
+# /bye -> MyApp::Controller::Foo->bye
+$r->route('/bye')->to('foo#bye', namespace => 'MyApp::Controller');
+
+Вы так же можете изменять стандартные пространства имен для всех маршрутов.
+
+$r->namespace('MyApp::Controller');
+
+=head2 Маршрут на возврат (C<cb>)
+
+Переменная C<cb> из stash может быть использована для пропуска контроллера и выполнения функции обратного вызова непосредственно.
+
+$r->route('/bye')->to(cb => sub {
+my $self = shift;
+$self->render(text => 'Счастливо!');
+});
+
+Эта техника - основа L<Mojolicious::Lite>, подробнее о которой можно узнать из поставляемой документации.
+
+=head2 Форматы
+
+Расширения файлов такие как C<.html> и C<.txt> в конце перенаправления автоматически определяются и сохраняются в спрятанном значении C<format>.
+
+# /foo -> {controller => 'foo', action => 'bar'}
+# /foo.html -> {controller => 'foo', action => 'bar', format => 'html'}
+# /foo.txt -> {controller => 'foo', action => 'bar', format => 'txt'}
+$r->route('/foo')->to(controller => 'foo', action => 'bar');
+
+Это пример допускает многочисленные шаблоны для различных форматов представления одного и того же кода.
+
+=head2 Служебные метки и их расположение
+
+Изымаемые значения служебных меток просто переопределят старые значения stash, если таковые существовали.
+
+# /bye -> {controller => 'foo', action => 'bar', mymessage => 'bye'}
+# /hey -> {controller => 'foo', action => 'bar', mymessage => 'hey'}
+$r->route('/:mymessage')
+->to(controller => 'foo', action => 'bar', mymessage => 'hi');
+
+Еще один интересный эффект: если служебная метка находится в конце маршрута и в stash есть значение с таким же именем, метка автоматически становится необязательной.
+
+# / -> {controller => 'foo', action => 'bar', mymessage => 'hi'}
+$r->route('/:mymessage')
+->to(controller => 'foo', action => 'bar', mymessage => 'hi');
+
+Это справедливо также для случаев, когда несколько меток 
+следуют друг за другом разделяясь между собой только символами C</>.
+
+# / -> {controller => 'foo', action => 'bar'}
+# /users -> {controller => 'users', action => 'bar'}
+# /users/list -> {controller => 'users', action => 'list'}
+$r->route('/:controller/:action')
+->to(controller => 'foo', action => 'bar');
+
+Специальные stash-значения, такие как C<controller> и C<action> тоже могут быть плейсхолдерами (метками), это позволяет создавать невероятное гибкие маршруты.
+
+=head2 Именованные Маршруты
+
+Именование ваших маршрутов позволит ссылаться на них из многих хелперов во всем фреймворке.
+
+# /foo/abc -> {controller => 'foo', action => 'bar', name =>  'abc'}
+$r->route('/foo/:name')->name('test')
+->to(controller => 'foo', action => 'bar');
+
+# Генерирует URL "/foo/abc" для маршрута "test"
+$self->url_for('test');
+
+# Генерирует URL "/foo/Иван" для маршрута "test"
+$self->url_for('test', name => 'Иван');
+
+=head2 HTTP Методы
+
+Метод C<via>  объекта маршрута позволяет задать только некоторые методы HTTP.
+
+# GET /bye -> {controller => 'foo', action => 'bye'}
+# POST /bye -> undef
+# DELETE /bye -> undef
+$r->route('/bye')->via('get')->to(controller => 'foo', action => 'bye');
+
+# GET /bye -> {controller => 'foo', action => 'bye'}
+# POST /bye -> {controller => 'foo', action => 'bye'}
+# DELETE /bye -> undef
+$r->route('/bye')->via(qw/get post/)
+->to(controller => 'foo', action => 'bye');
+
+=head2 Вложенные маршруты
+
+Кроме того, можно строить древовидные структуры из маршрутов для удаления повторяющихся участков кода, которые требуют конечные точки несмотря на поиск. 
+
+# /foo -> undef
+# /foo/bar -> {controller => 'foo', action => 'bar'}
+my $foo = $r->route('/foo')->to(controller => 'foo');
+$foo->route('/bar')->to(action => 'bar');
+
+Stash просто переходит от маршрута к маршруту и заменяет старые 
+значения на новые. 
+
+# /foo -> undef
+# /foo/abc -> undef
+# /foo/bar -> {controller => 'foo', action => 'bar'}
+# /foo/baz -> {controller => 'foo', action => 'baz'}
+# /foo/cde -> {controller => 'foo', action => 'abc'}
+my $foo = $r->route('/foo')->to(controller => 'foo', action => 'abc');
+$foo->route('/bar')->to(action => 'bar');
+$foo->route('/baz')->to(action => 'baz');
+$foo->route('/cde');
+
+=head1 Дополнительно
+
+Более мощные, но реже используемые возможности.
+
+=head2 Waypoints
+
+Waypoints are very similar to normal nested routes but can match even if they
+are not an endpoint themself.
+
+# /foo -> {controller => 'foo', action => 'baz'}
+# /foo/bar -> {controller => 'foo', action => 'bar'}
+my $foo = $r->waypoint('/foo')->to(controller => 'foo', action => 'baz');
+$foo->route('/bar')->to(action => 'bar');
+
+=head2 Мосты
+
+Bridges unlike nested routes and waypoints always match and result in
+additional dispatch cycles.
+
+# /foo -> undef
+# /foo/bar -> {controller => 'foo', action => 'baz'}
+# {controller => 'foo', action => 'bar'}
+my $foo = $r->bridge('/foo')->to(controller => 'foo', action => 'baz');
+$foo->route('/bar')->to(action => 'bar');
+
+The actual bridge code needs to return a true value or the dispatch chain
+will be broken, this makes bridges a very powerful tool for authentication.
+
+# /foo -> undef
+# /foo/bar -> {cb => sub {...}}
+# {controller => 'foo', action => 'bar'}
+my $foo = $r->bridge('/foo')->to(cb => sub {
+my $self = shift;
+
+# Authenticated
+return 1 if $self->req->headers->header('X-Bender');
+
+# Not authenticated
+return;
+});
+$foo->route('/bar')->to(controller => 'foo', action => 'bar');
+
+=head2 More Restrictive Placeholders
+
+You can adjust the regular expressions behind placeholders to better suit
+your needs, just make sure not to use C<^>, C<$> and C<()>, because
+placeholders become part of a larger regular expression internally.
+
+ # /23 -> {controller => 'foo', action => 'bar', number => 23}
+# /test -> undef
+$r->route('/:number', number => qr/\d+/)
+->to(controller => 'foo', action => 'bar');
+
+ # /23 -> undef
+# /test -> {controller => 'foo', action => 'bar', name => 'test'}
+$r->route('/:name', name => qr/\[a-zA-Z]+/)
+->to(controller => 'foo', action => 'bar');
+
+Этим путем вы получите легко читаемые маршруты и всю силу регулярных выражений.
+
+=head2 Условия
+
+Sometimes you might need a little more power, for example to check the
+C<User-Agent> header in multiple routes.
+This is where conditions come into play, they are basically router plugins.
+
+# Простое условие "User-Agent"
+$r->add_condition(
+agent => sub {
+my ($r, $tx, $captures, $pattern) = @_;
+
+# Пользователь передал регулярное выражение
+return unless $pattern && ref $pattern eq 'Regexp';
+
+            # Match "User-Agent" header and return captured values on success
+            my $agent = $tx->req->headers->user_agent;
+            return $captures if $agent && $agent =~ $pattern;
+
+            # No success
+            return;
+        }
+    );
+
+ # /firefox_only (Firefox) -> {controller => 'foo', action => 'bar'}
+$r->route('/firefox_only')->over(agent => qr/Firefox/)
+->to(controller => 'foo', action => 'bar');
+
+The method C<add_condition> registers the new condition in the router while
+C<over> actually applies it to the route.
+
+=head2 Плагины условий
+
+You can also package your conditions as reusable plugins.
+
+# Плагин
+package Mojolicious::Plugin::WerewolfCondition;
+use base 'Mojolicious::Plugin';
+
+use Astro::MoonPhase;
+
+sub register {
+my ($self, $app) = @_;
+
+# Добавим условие для "оборотней"
+$app->routes->add_condition(
+werewolf => sub {
+my ($r, $tx, $captures, $days) = @_;
+
+# Гнать оборотней прочь!
+return if abs(14 - (phase(time))[2]) > ($days / 2);
+
+# Не бойся, оборотней нет
+return $captures;
+}
+);
+}
+
+1;
+
+Now just load the plugin and you are ready to use the condition in all your
+applications.
+
+# Приложение
+package MyApp;
+use base 'Mojolicious';
+
+sub startup {
+my $self = shift;
+
+# Плагин
+$self->plugin('werewolf_condition');
+
+# Маршруты
+my $r = $self->routes;
+
+        # /hideout (keep them out for 4 days after full moon)
+        $r->route('/hideout')->over(werewolf => 4)
+          ->to(controller => 'foo', action => 'bar');
+    }
+
+1;
+
+=head2 Подключаемые приложения
+
+You can easily embed whole applications using the C<detour> method, it
+accepts a L<Mojolicious> application class or instance.
+
+# Приложение
+package MyApp;
+use base 'Mojolicious';
+
+sub startup {
+my $self = shift;
+
+# Маршруты
+my $r = $self->routes;
+
+# Подключаем приложение Mojolicious::Lite  по адресу "/foo/*"
+$r->route('/foo')->detour('MyApp::Foo');
+}
+
+1;
+
+This allows for example the use of the L<Mojolicious::Lite> domain specific
+language in normal L<Mojolicious> controllers.
+
+# Контроллер
+package MyApp::Foo;
+use Mojolicious::Lite;
+
+# Действие
+get '/bar' => sub {
+my $self = shift;
+$self->render(text => 'Hello World!');
+};
+
+1;
+
+=head2 Плагины приложения
+
+Подключение приложений  L<Mojolicious> такое же простое, но может быть еще проще, если добавить к нему подобный плагин:
+
+# Плагин
+package Mojolicious::Plugin::MyEmbeddedApp;
+use base 'Mojolicious::Plugin';
+
+sub register {
+my ($self, $app) = @_;
+
+# Автоматически добавляем маршрут
+$app->routes->route('/foo')->detour(EmbeddedApp::app());
+}
+
+package EmbeddedApp;
+use Mojolicious::Lite;
+
+get '/bar' => 'bar';
+
+1;
+__DATA__
+@@ bar.html.ep
+Hello World!
+
+Просто подключите плагин и все готово.
+
+# Приложение
+package MyApp;
+use base 'Mojolicious';
+
+sub startup {
+my $self = shift;
+
+# Плагин
+$self->plugin('my_embedded_app');
+}
+
+1;
+
+=head2 ВебСокеты (WebSockets)
+
+You can restrict access to WebSocket handshakes using the C<websocket> method.
+
+# /ws (WebSocket handshake)
+$r->route('/echo')->websocket->to(controller => 'foo', action => 'echo');
+
+# Контроллер
+package MyApp::Foo;
+use base 'Mojolicious::Controller';
+
+# Action
+sub echo {
+my $self = shift;
+$self->receive_message(
+sub {
+my ($self, $message) = @_;
+$self->send_message("echo: $message");
+}
+);
+}
+
+1;
+
+=head2 IRIs
+
+Интернационализированные идентификаторы ресурсов (IRI) обрабатываются прозрачно. Поэтому получаемые пути гарантированно неэкранированы и декодированы в Perl символы.
+
+use utf8;
+
+    # /☃ (unicode snowman) -> {controller => 'foo', action => 'snowman'}
+    $r->route('/☃')->to(controller => 'foo', action => 'snowman');
+
+Только не забывайте использовать прагму L<utf8>, иначе это сделает юникодного снеговика очень грустным.
+
+=head2 Introspection
+
+Команда C<routes>, вызванная из командной строки, распечатает все доступные маршруты включая регулярные выражения.
+
+% script/myapp routes
+/foo/:name (?-xism:^/foo/([^\/\.]+))
+/bar/(.test) (?-xism:^/bar/([^\/]+))
+/baz/(*everything) (?-xism:^/baz/(.+))
+
+=cut
+
+
+-------------------------------------------------------------------------------
+http://translated.by/you/introduction-to-the-mojolicious-router-and-its-underlying-concepts/into-ru/trans/
+© 2008-2010, Sebastian Riedel.
+Original (English): Introduction to the Mojolicious router and its underlying concepts (http://github.com/kraih/mojo/raw/master/lib/Mojolicious/Guides/Routing.pod)
+Translation: © cubloid, xoma, Foxcool, korshak, vti, koban, zhdinar.
+
+translated.by crowd
