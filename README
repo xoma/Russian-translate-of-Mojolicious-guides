@@ -4,5 +4,5 @@ Copyright (C) 2008-2010, Sebastian Riedel
 
 Если у вас есть какие-либо предложения или замечания, сообщите нам. Вы так же можете принять участие в переводе документации.
 Ссылки:
-http://translated.by/you/introduction-to-the-mojolicious-router-and-its-underlying-concepts/into-ru/trans/
-http://translated.by/you/rukovodstvo-po-renderengu-v-perl-freimvorke-mojolicious/into-ru/trans/
+http://github.com/kraih/mojo/tree/master/lib/Mojolicious/Guides/ - оригиналы;
+http://translated.by/you/authors/2158/ - онлайн-переводы.
