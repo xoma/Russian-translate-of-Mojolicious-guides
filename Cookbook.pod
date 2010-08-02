@@ -1,0 +1,240 @@
+# Mojolicious. Сборник рецептов.
+=encoding utf8
+# Copyright (C) 2008-2010, Sebastian Riedel.
+
+=head1 НАЗВАНИЕ
+
+Mojolicious::Guides::Cookbook - Сборник полезных программных решений
+	
+
+
+ОБЗОР
+
+Готовим с помощью L<Mojolicious>. Рецепты на любой вкус.
+
+=head1 РАЗВЕРТЫВАНИЕ
+
+Запуск L<Mojolicious> и L<Mojolicious::Lite> приложений на различных платформах.
+
+=head2 Встроенный сервер
+
+L<Mojolicious> имеет ультрапортативный HTTP 1.1 совместимый web-сервер. Обычно он используются при разработке, но он также достаточно стабильный и быстрый для небольших и средних приложений.
+
+
+  % ./script/myapp daemon
+  Server available at http://127.0.0.1:3000.
+
+Имеет множество опций, и, как известно, работает на любой платформе где есть Perl.
+
+  % ./script/myapp help daemon ...Список доступных опций...
+
+Другим большим преимуществом является то, что он поддерживает из коробки TLS и ВебСокеты
+
+  % ./script/myapp daemon --listen https://*:3000
+  Server available at https://*:3000.
+
+Сертификат разработчика для тестирования встроен, потому это просто
+работает.
+
+=head2 Встроенный Prefork Сервер
+
+Чтобы допускать масштабирование с несколькими процессорами (ядрами) и снизить потери производительности
+из-за блокирующего (медленного) API, встроенный веб-сервер имеет многопроцессовый preforking
+режим.
+Это не работает на Windows из-за оптимизаций для UNIX, но это достаточно быстро и масштабируемо
+ для больших приложений.
+
+  % ./script/myapp daemon_prefork
+  Server available at http://127.0.0.1:3000.
+
+По умолчанию он будет принимать одно соединение от клиента на один процесс-обработчик, как
+Apache, но это значение может быть увеличено, позволяя огромное количество одновременных
+клиентских соединений.
+(Epoll и kqueue будет использоваться автоматически при наличии)
+
+  % ./script/myapp daemon_prefork --clients 100
+  Server available at http://127.0.0.1:3000.
+
+=head2 Nginx
+
+Одним из наиболее популярных способов установки в настоящее время является встроенный preforking web сервер за инвертированным прокси Nginx .
+
+  upstream myapp {
+      server 127.0.0.1:3000;
+  }
+  server {
+      listen 80;
+      server_name localhost;
+      location {
+	  proxy_read_timeout 300;
+	  proxy_pass http://myapp;
+      }
+  }
+
+Также вожможно использование доменных сокетов UNIX.
+
+  upstream myapp {
+      server unix:/tmp/myapp.sock;
+  }
+  server {
+      listen 80;
+      server_name localhost;
+      location {
+	  proxy_read_timeout 300;
+	  proxy_pass http://myapp;
+      }
+  }
+
+Встроенный web-сервер, конечно, так же их поддерживает .
+
+  % ./script/myapp daemon_prefork --listen file:///tmp/myapp.sock
+  Server available at file:///tmp/myapp.sock.
+
+Интересным побочным эффектом является то, что можно параллельно запустить несколько серверов, позволив им совместно использовать один и тот же сокет и файл блокировки. Это позволяет осуществлять так называемое C<горячее развёртывание>, означающее полное отсутствие простоя во время обновления программ.
+
+  % ./script/myapp daemon_prefork --listen file:///tmp/myapp.sock\
+  --pid /tmp/myapp1.pid --lock /tmp/myapp.lock --daemonize
+  Server available at file:///tmp/myapp.sock.
+
+Всё что вам надо — это обновить код вашего приложения, запустить второй экземпляр сервера и после этого послать старому экземпляру сигнал C<USR1>.
+Старый сервер будет аккуратно выключен, активные соединения не будут разорваны и ваши пользователи ничего не заметят.
+
+  % ./script/myapp daemon_prefork --listen file:///tmp/myapp.sock\
+  --pid /tmp/myapp2.pid --lock /tmp/myapp.lock --daemonize
+
+  % kill -s USR1 `cat /tmp/myapp1.pid`
+
+=head2 Apache/CGI
+
+C<CGI> поддерживается «из коробки», и ваше приложение на L<Mojolicious> автоматически определит, что оно запущено как C<CGI>-скрипт.
+
+  <VirtualHost *:80>
+  ServerName localhost
+  DocumentRoot /home/sri/myapp/public
+
+  ScriptAlias /myapp "/home/sri/myapp/script/myapp"
+  </VirtualHost>
+
+=head2 Apache/FastCGI
+
+C<FastCGI> тоже поддерживается «из коробки», и ваше приложение на L<Mojolicious> автоматически определит, что оно запущено как C<FastCGI>-скрипт.
+
+  <VirtualHost *:80>
+  ServerName localhost
+  DocumentRoot /home/sri/myapp/public
+
+  <Location /myapp>
+  FastCgiIpcDir /tmp
+  FastCgiServer /home/sri/myapp/script/myapp -processes 10
+  </Location>
+
+  </VirtualHost>
+
+=head2 PSGI/Plack
+
+L<PSGI> - это интерфейс между Perl веб-фреймворками и веб-серверами.
+L<Plack> -  это Perl модуль и набор разработчика, который содержит связующее ПО PSGI, вспомогательные инструменты и адаптеры для веб-серверов.
+На создание L<PSGI> и L<Plack> вдохновили Python WSGI и Ruby Rack.
+Приложения L<Mojolicious> смехотворно просто разверачивать с помощью L<Plack>.
+
+  % plackup ./script/myapp
+  HTTP::Server::PSGI: Accepting connections at http://0:5000/
+
+L<Plack> предоставляет много серверных и протокольных адаптеров, вы можете выбирать из C<FCGI>, C<SCGI> и C<mod_perl>.
+Удостоверьтесь что запускаете C<plackup> из вашего рабочего каталога приложений, иначе библиотеки могут быть не найдены.
+
+  % plackup ./script/myapp -s FCGI -l /tmp/myapp.sock
+
+Из-за того что C<plackup> использует причудливый способ загрузки вашего скрипта, L<Mojolicious> не всегда в состоянии определить рабочую директорию. В таком случае используйте переменную окружения C<MOJO_HOME>. По той же самой причине строчка C<app-E<gt>start> должна быть последним Perl-оператором в приложении.
+
+  % MOJO_HOME=/home/sri/myapp plackup ./script/myapp
+  HTTP::Server::PSGI: Accepting connections at http://0:5000/
+
+Некоторые серверные адаптеры могут запросить файл C<.psgi>, если это происходит, вы просто указываете на ваш скрипт приложения. Он будет себя вести так как надо, если обнаружит пременную окружения C<PLACK_ENV>.
+
+=head2 Apache/mod_perl (PSGI/Plack)
+	
+
+
+C<mod_perl> это хороший пример L<PSGI> адаптера без использования C<plackup>, помните что установка переменной окружения C<PLACK_ENV> необходима L<Mojolicious> для автоматического обнаружения L<PSGI>.
+
+  <VirtualHost *:80>
+  ServerName localhost
+  DocumentRoot /home/sri/myapp/public
+
+  <Perl>
+  $ENV{PLACK_ENV} = 'production';
+  $ENV{MOJO_HOME} = '/home/sri/myapp';
+  </Perl>
+
+  <Location /myapp>
+  SetHandler perl-script
+  PerlHandler Plack::Handler::Apache2
+  PerlSetVar psgi_app /home/sri/myapp/script/myapp
+  </Location>
+  </VirtualHost>
+
+=head2 IIS6.0/FastCGI
+
+Мы не советуем использовать IIS, ибо это страшно нестабильный веб-сервер. Избегайте работы с ним, если это возможно.
+Мы не можем сделать это для вас это приятным опытом, но может быть мы сможем немного облегчить страдания.
+
+Во-первых, вы должны скачать и установить свежую версию C<Strawberry Perl> и L<Mojolicious>. C<Strawberry> - это лучшая версия Perl для Windows, которая, вероятно, может быть.
+
+После вам нужно установить IIS 6.0, а также расширение FastCGI для него, которое не входит в стандартный инсталлятор. Создайте новый сайт следующим образом C<Control Panel> > C<Administrative Tools> >
+C<Internet Information Services Manager> > C<Action> > C<New> > C<Web Site> и завершите процесс инсталляции.
+
+Откройте свойства созданного сайта и выберете вкладку C<Web Site>. Установите нужные значение для полей C<Site Description>, C<IP Address>, C<TCP Port>, C<SSL Port> и т.д.
+
+На вкладке C<Home Directory> установите C<Local Path> в C<c:\myapp\public>,
+C<Local Path Permission Flags> в C<Read> и C<Log Visits>,
+C<Execute Permissions> в C<Scripts Only>.
+
+Нажмите на кнопку C<Configuration>, а после на кнопку C<Insert> (следующая за C<Wildcard Application Mappings>). Проставте в C<Executable> значение C<c:\windows\system32\inetsrv\fcgiext.dll> и снимете галочку с поля C<Verify That Files Exist>.
+
+Вставьте следующие строки в C<c:\windows\system32\inetsrv\fcgiext.ini>
+или C<c:\windows\syswow64\inetsrv\fcgiext.ini> на 64-разрядных системах.
+
+  [Types]
+  *=MyApp
+
+  [MyApp]
+  ExePath=c:\strawberry\perl\bin\perl.exe
+  Arguments="c:\myapp\script\myapp fastcgi"
+
+  ; Разрешите IIS обработывать статичные файлы
+  IgnoreExistingFiles=0
+  IgnoreDirectories=1
+
+И напоследок, IIS временами очищает ваши переменные окружения, но так как Windows не будет работать без C<SYSTEMROOT>, вам потребуется установить эту переменную вручную в вашем приложении.
+
+  # Приложение
+  package MyApp;
+  use base 'Mojolicious';
+
+  sub startup {
+  my $self = shift;
+
+  # Используем перехватчик, чтобы устанавливать переменную окружения при каждом запросе
+  $self->plugins->add_hook(
+  before_dispatch => sub { $ENV{SYSTEMROOT} = 'c:\\winnt' }
+  );
+  }
+
+  1;
+
+=head1 Развлекаемся
+
+Хаки, которые быть может и не очень полезны, но зато интересны! :)
+
+=head2 Hello World
+
+Если экономить на каждом байте, то самое маленькое C<Hello World> приложение, написанное на L<Mojolicious::Lite>, имеет следующий вид:
+
+  use Mojolicious::Lite;
+  get '/' => {text => 'Hello World!'};
+  app->start;
+
+Это работает, потому что автоматический рендеринг срабатывает, даже если код фартически не выполняется маршрутизатором, рендерер только забирает значение C<text> из stash и формирует ответ.
+
+=cut
