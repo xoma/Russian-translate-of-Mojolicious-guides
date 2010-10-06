@@ -1,0 +1,369 @@
+
+Mojolicious — веб в коробке!
+
+=head1 ИМЯ
+
+Mojolicious — веб в коробке!
+
+=head1 ОБЗОР
+
+# Приложение Mojolicious
+package MyApp;
+
+use base 'Mojolicious';
+
+sub startup {
+my $self = shift;
+
+# Routes
+my $r = $self->rout
+
+# Default route
+$r->route('/:controller/:action/:id')->to('foo#welcome');
+}
+
+# Контроллер Mojolicious
+package MyApp::Foo;
+
+use base 'Mojolicious::Controller';
+
+# Say hello
+sub welcome {
+my $self = shift;
+$self->render_text('Hi there!');
+}
+
+# Say goodbye from a template (foo/bye.html.ep)
+sub bye { shift->render }
+
+=head1 ОПИСАНИЕ
+
+На заре развития всемирной паутины существовала прекрасная библиотека Perl, 
+называемая C<CGI>; многие люди изучали Perl только из-за неё. 
+Она была достаточно проста, чтобы начать работу без особого знания языка и достаточно мощна, чтобы с увлечением продолжать изучать язык. Хотя большинство используемых ею методов в настоящее время устарело, сама идея остается актуальной. C<Mojolicious> — новая попытка реализации этой идеи c использованием передовых технологий.
+
+=head2 Возможности
+
+=over 4
+
+Великолепный веб-фреймворк MVC позволяет написать полноценное приложение в одном файле с помощью L<Mojolicious::Lite>.
+
+Очень чистый, портируемый и объектно-ориентированный Perl API без какой-либо скрытой магии и требований, кроме Perl 5.8.7.
+
+Полная поддержка HTTP 1.1 и клиент/серверная реализация WebSocket с IPv6, TLS, IDNA, конвейеров, поддержка chunking и multipart.
+
+Встроенный асинхронный ввод-вывод, prefork-вебсервер с поддержкой epoll и kqueue, "горячая" развёртка и использование доменного сокета UNIX (анг. Unix domain socket sharing) — прекрасно подходит для встраивания!
+
+Поддержка CGI, FastCGI и L<PSGI>.
+
+Свежий код, основанный на многолетнем опыте разработки Catalyst.
+
+Мощные возможности прямо из коробки: роуты RESTful, плагины, сессии, подписанные cookies, сервер статических файлов (static file server), тестировочный фреймворк, шаблонизация в стиле Perl, JSON, I18N, первоклассная поддержка Юникода и многое другое!
+
+=back
+
+=head2 Липкая лента для HTML5
+
+Веб-разработка для людей, делающая сложные вещи возможными, а саму разработку приятной.
+
+use Mojolicious::Lite;
+
+get '/hello' => sub { shift->render(text => 'Hello World!') }
+
+get '/time' => 'clock';
+
+websocket '/echo' => sub {
+my $self = shift;
+$self->receive_message(
+sub {
+my ($self, $message) = @_;
+$self->send_message("echo: $message");
+}
+);
+};
+
+get '/title' => sub {
+my $self = shift;
+my $url = $self->param('url');
+$self->render(text =>
+$self->client->get($url)->success->dom->at('title')->text);
+};
+
+post '/:offset' => sub {
+my $self = shift;
+my $offset = $self->param('offset') || 23;
+$self->render(json => {list => [0 .. $offset]});
+};
+
+app->start;
+__DATA__
+
+@@ clock.html.ep
+% my ($second, $minute, $hour) = (localtime(time))[0, 1, 2];
+The time is <%= $hour %>:<%= $minute %>:<%= $second %>.
+
+См. более дружественную к пользователю документацию L<Mojolicious::Guides> и L<Mojolicious::Lite>.
+
+=head2 Вот такие пироги
+
+.---------------------------------------------------------------.
+| |
+| .----------------------------------------------'
+| | .--------------------------------------------.
+| Application | | Mojolicious::Lite |
+| | '--------------------------------------------'
+| | .--------------------------------------------.
+| | | Mojolicious |
+'----------------' '--------------------------------------------'
+.---------------------------------------------------------------.
+| Mojo |
+'---------------------------------------------------------------'
+.-------. .-----------. .--------. .------------. .-------------.
+| CGI | | FastCGI | | PSGI | | HTTP 1.1 | | WebSocket |
+'-------' '-----------' '--------' '------------' '-------------'
+
+АТРИБУТЫ
+
+L<Mojolicious> наследует все атрибуты из L<Mojo> и реализует следующие.
+
+=head2 C<controller_class>
+
+    my $class = $mojo->controller_class;
+    $mojo     = $mojo->controller_class('Mojolicious::Controller');
+
+Класс который будет использоваться в качестве контроллера,
+по умолчанию используется  L<Mojolicious::Controller>.
+
+=head2 C<mode>
+
+my $mode = $mojo->mode;
+$mojo = $mojo->mode('production');
+
+Режим работы для вашего приложения.
+По умолчанию используется  значение переменной окружения C<MOJO_MODE> или C<development>.
+Mojo назовёт лог-файл по текущему режиму; если режим отличается от C<development>, логи будут ограничены.
+
+Если вы хотите добавить в ваше приложение логику, зависящую от режима, можете добавить подпрограмму C<$mode_mode>. 
+
+sub development_mode {
+my $self = shift;
+}
+
+sub production_mode {
+my $self = shift;
+}
+
+=head2 C<plugins>
+
+my $plugins = $mojo->plugins;
+$mojo = $mojo->plugins(Mojolicious::Plugins->new);
+
+Загрузчик плагина по умолчанию — объект L<Mojolicious::Plugins>. Обычно вы можете оставить всё как есть, см. L<Mojolicious::Plugin>, если хотите написать плагин.
+
+=head2 C<renderer>
+
+my $renderer = $mojo->renderer;
+$mojo = $mojo->renderer(MojoX::Renderer->new);
+
+Используется для визуализации контента, по умолчанию L<MojoX::Render>.
+Два основных плагина визуализации L<Mojolicious::Plugin::EpRenderer> 
+и L<Mojolicious::Plugin::EplRenderer> содержат более подробную информацию.
+
+=head2 C<routes>
+
+my $routes = $mojo->routes;
+$mojo = $mojo->routes(MojoX::Dispatcher::Routes->new);
+
+Диспетчер маршрутов, по умолчанию L<MojoX::Dispatcher::Routes>. Вы используете его в стартовом методе для определения url endpoints для вашего приложения.
+
+sub startup {
+my $self = shift;
+
+my $r = $self->routes;
+$r->route('/:controller/:action')->to('test#welcome');
+}
+
+=head2 C<secret>
+
+my $secret = $mojo->secret;
+$mojo = $mojo->secret('passw0rd');
+
+Секретный пароль, используемый для подписанных cookies и т.п., по умолчанию — название приложения, что не очень надежно, поэтому вы должны изменить его!!! До тех пор, пока вы будете использовать значение по умолчанию, в лог файл будут писаться отладочные сообщения с напоминанием о смене пароля.
+
+=head2 C<static>
+
+my $static = $mojo->static;
+$mojo = $mojo->static(MojoX::Dispatcher::Static->new);
+
+Для обслуживания статических ресурсов из каталога C<public>, по
+умолчанию L<MojoX::Dispatcher::Static>.
+
+=head2 C<types>
+
+my $types = $mojo->types;
+$mojo = $mojo->types(MojoX::Types->new);
+
+Отвечает за отслеживание типов контента, который вы хотите
+обслуживать в приложении, по умолчанию L<MojoX::Types>. Вы можете легко зарегистрировать новый тип.
+
+$mojo->types->type(vti => 'help/vampire')
+
+=head1 Методы
+
+L<Mojolicious> наследует все методы от L<Mojo> и реализует следующие новые.
+
+=head2 C<new>
+
+my $mojo = Mojolicious->new;
+
+Создаёт новое приложение L<Mojolicious>. Автоматически определяет ваш домашний каталог и устанавливает логирование, основываясь на вашем текущем режиме работы. Кроме того, устанавливается маршрутизация, статическая диспетчеризация и стандартный набор плагинов.
+
+=head2 C<dispatch>
+
+$mojo->dispatch($c);
+
+Сердце каждого приложения Mojolicious, вызывает диспетчеры статических файлов и маршрутов для каждого запроса.
+
+=head2 C<finish>
+
+$mojo->finish($c);
+
+Чистка после обработки запроса, как правило, вызывается автоматически.
+
+=head2 C<handler>
+
+$tx = $mojo->handler($tx);
+
+Устанавливает контроллер по умолчанию и вызывает процесс для каждого запроса.
+
+=head2 C<plugin>
+
+$mojo->plugin('something');
+$mojo->plugin('something', foo => 23);
+$mojo->plugin('something', {foo => 23});
+
+Загрузка плагина.
+
+=head2 C<process>
+
+$mojo->process($c);
+
+Данный метод может быть перегружен, чтобы сделать логику, зависящую от запроса, по умолчанию просто вызывает C<dispatch>.
+Вообще-то, вместо него вы будете использовать плагин или контроллер, считайте его за кувалду в вашем набор инструментов.
+
+sub process {
+my ($self, $c) = @_;
+$self->dispatch($c);
+}
+
+=head2 C<start>
+
+Mojolicious->start;
+Mojolicious->start('daemon');
+
+Запускает интерфейс командной строки L<Mojolicious::Commands> для вашего приложения.
+
+=head2 C<startup>
+
+$mojo->startup;
+
+Это ваша основная точка входа в приложении, метод будет вызываться при запуске.
+
+sub startup {
+my $self = shift;
+}
+
+=head1 ПОДДЕРЖКА
+
+=head2 В интернете
+
+http://mojolicious.org
+
+=head2 IRC
+
+#mojo на irc.perl.org
+
+=head2 Список рассылки
+
+http://groups.google.com/group/mojolicious
+
+=head1 РАЗРАБОТКА
+
+=head2 Репозиторий
+
+http://github.com/kraih/mojo
+
+=head1 АВТОР
+
+Sebastian Riedel, C<sri@cpan.org>.
+
+=head1 ГЛАВНЫЕ РАЗРАБОТЧИКИ
+
+Viacheslav Tykhanovskyi, C<vti@cpan.org>.
+
+БЛАГОДАРНОСТИ
+
+В алфавитном порядке:
+
+Adam Kennedy
+Adriano Ferreira
+Alex Salimon
+Alexey Likhatskiy
+Anatoly Sharifulin
+Andre Vieth
+Andrew Fresh
+Andreas Koenig
+Andy Grundman
+Aristotle Pagaltzis
+Ask Bjoern Hansen
+Audrey Tang
+Breno G. de Oliveira
+Burak Gursoy
+Ch Lamprecht
+Christian Hansen
+Curt Tilmes
+David Davis
+Dmitry Konstantinov
+Gisle Aas
+Glen Hinkle
+Graham Barr
+Hideki Yamamura
+James Duncan
+Jaroslav Muhin
+Jesse Vincent
+Jonathan Yu
+Kazuhiro Shibuya
+Kevin Old
+Lars Balker Rasmussen
+Leon Brocard
+Maik Fischer
+Marcus Ramberg
+Mark Stosberg
+Matthew Lineen
+Maksym Komar
+Maxim Vuets
+Mirko Westermeier
+Oleg Zhelo
+Pascal Gaudette
+Pedro Melo
+Pierre-Yves Ritschard
+Rafal Pocztarski
+Randal Schwartz
+Robert Hicks
+Ryan Jendoubi
+Sascha Kiefer
+Sergey Zasenko
+Shu Cho
+Stanis Trendelenburg
+Tatsuhiko Miyagawa
+Uwe Voelker
+Yaroslav Korshak
+Yuki Kimoto
+
+=head1 КОПИРАЙТ И ЛИЦЕНЗИЯ
+
+Copyright (C) 2008-2010, Sebastian Riedel.
+
+Эта программа является свободным программным обеспечением, вы можете поставлять и/или модифицировать её на условиях Artistic License 2.0
+
+=cut

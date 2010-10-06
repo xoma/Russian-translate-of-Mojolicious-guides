@@ -1,4 +1,5 @@
-# Руководство по рендерингу в Perl-фреймворке Mojolicious
+
+Руководство по рендерингу в Perl-фреймворке Mojolicious
 
 # Copyright (C) 2008—2010, Sebastian Riedel.
 
@@ -24,104 +25,104 @@ Mojolicious::Guides::Rendering — Рендеринг
 в реальный ответ. При этом используются различные системы шаблонов и модули кодирования данных.
 
 
-  {text => 'Привет!'}                 -> 200 OK, text/plain, 'Привет!'
-  {json => {x => 3}}                 -> 200 OK, application/json, '{"x":3}'
-  {text => 'Ой!', status => '410'} -> 410 Gone, text/plain, 'Ой!'
+{text => 'Привет!'}                 -> 200 OK, text/plain, 'Привет!'
+{json => {x => 3}}                 -> 200 OK, application/json, '{"x":3}'
+{text => 'Ой!', status => '410'} -> 410 Gone, text/plain, 'Ой!'
 
 
 Шаблон может быть выбран автоматически, если для этого разрабочиком либо маршрутом предоставлено достаточно информации.
 Наименование шаблона должно соответствовать следующему формату C<имя_шаблона.формат.обработчик> (C<name.format.handler>), где C<name> по умолчанию соответствует C<controller/action> или имени маршрута, C<format> по умолчанию соответствует C<html>,
 C<handler> по умолчанию соответствует C<ep>.
 
-  {controller => 'users', action => 'list'} -> 'users/list.html.ep'
-  {route => 'foo', format => 'txt'}         -> 'foo.txt.ep'
-  {route => 'foo', handler => 'epl'}        -> 'foo.html.epl'
+{controller => 'users', action => 'list'} -> 'users/list.html.ep'
+{route => 'foo', format => 'txt'}         -> 'foo.txt.ep'
+{route => 'foo', handler => 'epl'}        -> 'foo.html.epl'
 
 
 
 Все шаблоны должны быть размещены в директории C<templates> приложения или в секции C<DATA> класса C<main>.
 
 
-  __DATA__
-  @@ time.html.ep
-  <!doctype html><html>
-  <head><title>Время</title></head>
-  <body><%= localtime time %></body>
-  </html>
+__DATA__
+@@ time.html.ep
+<!doctype html><html>
+<head><title>Время</title></head>
+<body><%= localtime time %></body>
+</html>
 
-  @@ hello.txt.ep
+@@ hello.txt.ep
 
 Рендерер может быть легко расширен для поддержки дополнительных шаблонизаторов,
 с помощью расширений, но об этом позже.
 
 
-  =head2 Embedded Perl
+=head2 Embedded Perl
 
 L<Mojolicious> изначально включает простую, но очень мощную систему шаблонов, называемую Embedded Perl или C<ep> для краткости.
 Это позволяет встраивать код на Perl прямо в содержимое, используя небольшой набор специальных меток и символов начала строки.
 
-  <% Строчный Perl %>
-  <%= Выражение Perl, заменяемое результатом с XML экранированием %>
-  <%== Выражение Perl, заменяемое результатом без какой-либо обработки %>
-  <%# Комментарий, полезно для отладки %>
-  % Строка Perl
-  %= Строка выражения Perl, заменяемое результатом с XML экранированием
-  %== Строка выражения Perl, заменяемое результатом без какой-либо обработки
-  %# Строка комментария, полезно для отладки
+<% Строчный Perl %>
+<%= Выражение Perl, заменяемое результатом с XML экранированием %>
+<%== Выражение Perl, заменяемое результатом без какой-либо обработки %>
+<%# Комментарий, полезно для отладки %>
+% Строка Perl
+%= Строка выражения Perl, заменяемое результатом с XML экранированием
+%== Строка выражения Perl, заменяемое результатом без какой-либо обработки
+%# Строка комментария, полезно для отладки
 
 Для вставки Perl кода используется простейший способ.
 Теги и строки работают одинаково, но в зависимости от контекста что-то будет выглядеть лучше.
 
-  <% my $i = 10; %>
-  Текст до цикла
-  <% for (1 .. $i) { %>
-  Вставить этот текст 10 раз!
-  <% } %>
-  Текст после цикла
+<% my $i = 10; %>
+Текст до цикла
+<% for (1 .. $i) { %>
+Вставить этот текст 10 раз!
+<% } %>
+Текст после цикла
 
-  % my $i = 10;
-  Текст до цикла
-  % for (1 .. $i) {
-  Вставить этот текст 10 раз!
-  % }
-  Текст после цикла
+% my $i = 10;
+Текст до цикла
+% for (1 .. $i) {
+Вставить этот текст 10 раз!
+% }
+Текст после цикла
 
 Вы также можете вставлять результаты выполнения Perl-кода, используя выражения. По умолчанию символы C<E<lt>>, C<E<gt>>, C<&>, C<'> и C<"> будут экранированы, чтобы предотвратить XSS-атаки на ваше приложение. Ко всем выражениям автоматически будут добавлены точки с запятой.
 
-  <%= 'lalala' %>
-  <%== '<p>test</p>' %>
+<%= 'lalala' %>
+<%== '<p>test</p>' %>
 
 Только объекты L<Mojo::ByteStream> не экранируются автоматически.
 
-  <%= Mojo::ByteStream->new('<p>Тест!</p>') %>
+<%= Mojo::ByteStream->new('<p>Тест!</p>') %>
 
 Вы также можете добавить дополнительный знак '=' в конец тега, чтобы автоматически удалить все лишние пробелы в начале и конце, это позволяет делать отступы, не портя результат.
 
-  <% for (1 .. 3) { %>
-  <%= $foo =%>
-  <% } %>
+<% for (1 .. 3) { %>
+<%= $foo =%>
+<% } %>
 
 Теги комментариев очень полезны для исключения некоторого кода в целях отладки.
 
-  % my $foo = 'lalala';
-  <%# if ($foo) { %>
-  <%= $foo =%>
-  <%# } %>
+% my $foo = 'lalala';
+<%# if ($foo) { %>
+<%= $foo =%>
+<%# } %>
 
 Значения stash, которые не содержат недопустимых символов в своих именах, автоматически инициализируются как обычные переменные в шаблоне, а экземпляр контроллера как C<$self>.
 
-  $r->route('/foo/:name')
-  ->to(controller => 'foo', action => 'bar', name => 'tester');
+$r->route('/foo/:name')
+->to(controller => 'foo', action => 'bar', name => 'tester');
 
 Привет <%= $name %>.
 
 Есть также множество встроенных вспомогательных функций, таких как C<url_for>, которые позволяют создавать URL определенного маршрута по его имени.
 
-  $r->route('/foo/:name')->to('foo#bar')->name('some_route');
+ $r->route('/foo/:name')->to('foo#bar')->name('some_route');
+	
 
 
-
-  <%= url_for 'some_route' %>
+<%= url_for 'some_route' %>
 
 =head1 ОСНОВЫ
 
@@ -131,7 +132,7 @@ L<Mojolicious> изначально включает простую, но оче
 
 Рендеринг может быть инициирован "вручную", вызовом метода C<render> контроллера, но обычно в этом нет необходимости, потому что рендеринг произойдет автоматически если ничего не будет отображено после того как диспетчер роутов завершит свою работу. Это так же означает, что можно создать маршрут, указывающий только на шаблон, минуя действие контроллера.
 
-  $self->render;
+$self->render;
 
 Однако есть одна большая разница: вызывая C<render> вручную, можно быть уверенным, что будет использоваться текущий экземпляр контроллера, а не контроллер по умолчанию, определенный атрибутом C<controller_class> в классе приложения.
 
@@ -139,15 +140,15 @@ L<Mojolicious> изначально включает простую, но оче
 
 Рендерер всегда будет пытаться автоматически определить нужный шаблон, но вы можете определить в stash значение C<template> чтобы рендерить указанный вами шаблон.
 
-  $self->render(template => 'foo');
+$self->render(template => 'foo');
 
 Выбор соответствующего формата C<format> и обработчика C<handler> очень прост.
 
-  $self->render(template => 'foo', format => 'txt', handler =>  'epl');
+$self->render(template => 'foo', format => 'txt', handler =>  'epl');
 
 Поскольку обработка шаблона - часто используемая задача, она так же имеет сокращенную запись.
 
-  $self->render('foo');
+$self->render('foo');
 
 Все значения, переданные при вызове C<render>, назначаются в stash временно и сбрасываются после окончания рендеринга.
 
@@ -155,69 +156,69 @@ L<Mojolicious> изначально включает простую, но оче
 
 Обычный текст можно рендерить с помощью stash значения C<text>, символы будут автоматически перекодированы в байты.
 
-  $self->render(text => 'Hello Wörld!');
+$self->render(text => 'Hello Wörld!');
 
 =head2 Рендеринг Данных (C<data>)
 
 Бинарные данные можно обрабтаывать с помощью stash значения C<data>, перекодирование в этом случае не производится.
 
-  $self->render(data => $octets);
+$self->render(data => $octets);
 
 =head2 Формирование JSON (C<json>)
 
 Значение stash C<json> позволяет передавать рендереру структуры данных Perl, которые будут преобразованы непосредственно в JSON.
 
-  $self->render(json => {foo => [1, 'test', 3]});
+$self->render(json => {foo => [1, 'test', 3]});
 
 =head2 Частичный рендеринг (C<partial>)
 
 Иногда вам может понадобиться получить результат рендеринга, например для создания сообщений электронной почты. Это можно сделать с помощью значения stash C<partial>.
 
-  my $html = $self->render('mail', partial => 1);
+my $html = $self->render('mail', partial => 1);
 
 =head2 Код Ответа (C<status>)
 
 Возвращаемые коды ответа могут быть изменены посредством stash-ключа C<status>
 
-  $self->render(text => 'Oops!', status => 500);
+$self->render(text => 'Oops!', status => 500);
 
 =head2 Тип содержимого (Content Type) (C<format>)
 
 Заголовок C<Content-Type> в ответе создается на основе соответствия MIME-типа, указанного в stash значении C<format>.
 
-  $self->render(text => 'Hello!', format => 'txt');
+$self->render(text => 'Hello!', format => 'txt');
 
 Эти соответствия могут быть расширены или изменены.
 
-  # Application
-  package MyApp;
-  use base 'Mojolicious';
+# Application
+package MyApp;
+use base 'Mojolicious';
 
-  sub startup {
-  my $self = shift;
+sub startup {
+my $self = shift;
 
-  # Добавляем новый MIME-тип
-  $self->types->type(txt => 'text/plain; charset=utf-8');
-  }
+# Добавляем новый MIME-тип
+$self->types->type(txt => 'text/plain; charset=utf-8');
+}
 
-  1;
+1;
 
 =head2 Вспомогательные функции
 
 Вспомогательные функции - это небольшие функции, хранящиеся в рендерере, не все из них непосредственно относятся к шаблонам, поэтому вы можете использовать контроллер C<helper> для их вызова.
 
-  <%= dumper [1, 2, 3] %>
+<%= dumper [1, 2, 3] %>
 
-  my $serialized = $self->helper(dumper => [1, 2, 3]);
+my $serialized = $self->helper(dumper => [1, 2, 3]);
 
 Вспомогательная функция C<dumper> будет использовать L<Data::Dumper> для сериализации структуры данных, которую вы передадите ему, это может быть очень полезным для отладки.
 Мы различаем C<помощников по умолчанию> которые имеют общее назначение, как C<dumper> и C<помощников для тэгов>, которые специфичны для шаблонов и в основном используются для генерации тэгов C<HTML>.
 
-  <%= script '/script.js' %>
+<%= script '/script.js' %>
 
-  <%= script {%>
-  var a = 'b';
-  <%}%>
+<%= script {%>
+var a = 'b';
+<%}%>
 
 Все эти вспомогательные функции содержатся в плагинах L<Mojolicious::Plugin::DefaultHelpers> и
 L<Mojolicious::Plugin::TagHelpers>.
@@ -226,145 +227,145 @@ L<Mojolicious::Plugin::TagHelpers>.
 
 В большинстве случаев при использовании шаблонов C<ep> вы захотите поместить ваш генерируемый контент в HTML-"обертку", благодаря общим шаблонам это делается очень просто.
 
-  @@ foo/bar.html.ep
-  % layout 'mylayout';
-  Mojolicious is cool!
+@@ foo/bar.html.ep
+% layout 'mylayout';
+Mojolicious is cool!
 
-  @@ layouts/mylayout.html.ep
-  <!doctype html><html>
-  <head><title>Hello Best Perl Framework!</title></head>
-  <body><%= content %></body>
-  </html>
+@@ layouts/mylayout.html.ep
+<!doctype html><html>
+<head><title>Hello Best Perl Framework!</title></head>
+<body><%= content %></body>
+</html>
 
 Выбираем общий шаблон используя вспомогательную функцию C<layout> и просто размещаем содержимое текущего шаблона  используя вспомогательную функцию C<content>.
 А еще функция C<layout> принимает параметры stash.
 
-  @@ foo/bar.html.ep
-  % layout 'mylayout', title => 'Привет!';
-  Hello World!
+@@ foo/bar.html.ep
+% layout 'mylayout', title => 'Привет!';
+Hello World!
 
-  @@ layouts/mylayout.html.ep
-  <!doctype html><html>
-  <head><title><%= $title %></title></head>
-  <body><%= content %></body>
-  </html>
+@@ layouts/mylayout.html.ep
+<!doctype html><html>
+<head><title><%= $title %></title></head>
+<body><%= content %></body>
+</html>
 
 =head2 Включение составных шаблонов
 
 Как и большинство вспомогательные функций C<include> это просто сокращение, которое сделает вашу жизнь немного проще.
 
-  @@ foo/bar.html.ep
-  <!doctype htmМаксим Вуецl><html>
-  <%= include 'header' %>
-  <body>Bar!</body>
-  </html>
+@@ foo/bar.html.ep
+<!doctype html><html>
+<%= include 'header' %>
+<body>Bar!</body>
+</html>
 
-  @@ header.html.ep
-  <head><title>Здорово!</title></head>
+@@ header.html.ep
+<head><title>Здорово!</title></head>
 
 Вместо C<include> можно также вызывать C<render> с аргументом C<partial>.
 
-  @@ foo/bar.html.ep
-  <!doctype html><html>
-  <%= $self->render('header', partial => 1) %>
-  <body>Bar!</body>
-  </html>
+@@ foo/bar.html.ep
+<!doctype html><html>
+<%= $self->render('header', partial => 1) %>
+<body>Bar!</body>
+</html>
 
-  @@ header.html.ep
-  <head><title>Здорово!</title></head>
+@@ header.html.ep
+<head><title>Здорово!</title></head>
 
 Конечно, можно передавать также и значения stash.
 
-  @@ foo/bar.html.ep
-  <!doctype html><html>
-  <%= include 'header', title => 'Привет!' %>
-  <body>Бар!</body>
-  </html>
+@@ foo/bar.html.ep
+<!doctype html><html>
+<%= include 'header', title => 'Привет!' %>
+<body>Бар!</body>
+</html>
 
-  @@ header.html.ep
-  <head><title><%= $title %></title></head>
+@@ header.html.ep
+<head><title><%= $title %></title></head>
 
 =head2 Повторно используемые блоки в шаблонах
 
 Не очень весело повторять код дважды, поэтому можно строить блоки в C<ep> шаблонах для их повторного использования. Они работают аналогично обычным функциям в Perl.
 
-  <% my $block = {%>
-  <% my $name = shift; %>
-  Привет <%= $name %>.
-  <%}%>
-  <%= $block->('Себастьян') %>
-  <%= $block->('Сара') %>
+<% my $block = {%>
+<% my $name = shift; %>
+Привет <%= $name %>.
+<%}%>
+<%= $block->('Себастьян') %>
+<%= $block->('Сара') %>
 
 Блоки начинаются с открытой фигурной скобки в открывающем теге и заканчиваются мини тегом, содержащим только закрывающую фигурную скобку. Пробелы между скобками и тегом не разрешены, чтобы отличать блоки от обычного Perl-кода.
 
-  <% my $block = {%>
-  <% my $name = shift; %>
-  Привет <%= $name %>.
-  <%}%>
-  <% for (1 .. 10) { %>
-  <%= $block->('Себастьян') %>
-  <% } %>
+<% my $block = {%>
+<% my $name = shift; %>
+Привет <%= $name %>.
+<%}%>
+<% for (1 .. 10) { %>
+<%= $block->('Себастьян') %>
+<% } %>
 
 Простое преобразование в равнозначный Perl-код может выглядеть следующим образом.
 
-  my $output = '';
-  my $block = sub {
-  my $name = shift;
-  my $output = '';
-  $output .= "Привет $name.";
-  return $output;
-  }
-  for (1 .. 10) {
-  $output .= $block->('Себастьян');
-  }
-  print $output;
+my $output = '';
+my $block = sub {
+my $name = shift;
+my $output = '';
+$output .= "Привет $name.";
+return $output;
+}
+for (1 .. 10) {
+$output .= $block->('Себастьян');
+}
+print $output;
 
 =head2 Блоки содержимого
 
 Блоки и помощник C<content> могут быть использованы, чтобы передать целые секции шаблона в общий шаблон.
 
-  @@ foo/bar.html.ep
-  % layout 'mylayout';
-  <% content header => {%>
-  <title>МояПрограмма!</title>
-  <%}%>
-  Привет, мир!
+@@ foo/bar.html.ep
+% layout 'mylayout';
+<% content header => {%>
+<title>МояПрограмма!</title>
+<%}%>
+Привет, мир!
 
-  @@ layouts/mylayout.html.ep
-  <!doctype html><html>
-  <head><%= content 'header' %></head>
-  <body><%= content %></body>
-  </html>
+@@ layouts/mylayout.html.ep
+<!doctype html><html>
+<head><%= content 'header' %></head>
+<body><%= content %></body>
+</html>
 
 =head2 Наследование шаблонов
 
 Наследование продвигает идею общего шаблона на шаг вперед, позволяя использовать вспомогательную функцию C<content> для перегрузки целых секций шаблонов.
 Разница между функциями C<layout> и C<extends> состоит в том, что перегруженные шаблоны не получают префикс C<layout/>.
 
-  @@ first.html.ep
-  %# "<div>Первая шапка!Первый подвал!</div>"
-  <div>
-  <%= content header => {%>
-  Первая шапка!
-  <%}%>
-  <%= content footer => {%>
-  Первый подвал!
-  <%}%>
-  </div>
+@@ first.html.ep
+%# "<div>Первая шапка!Первый подвал!</div>"
+<div>
+<%= content header => {%>
+Первая шапка!
+<%}%>
+<%= content footer => {%>
+Первый подвал!
+<%}%>
+</div>
 
-  @@ second.html.ep
-  %# "<div>Вторая шапка!Первый подвал!</div>"
-  % extends 'first';
-  <% content header => {%>
-  Вторая шапка!
-  <%}%>
+@@ second.html.ep
+%# "<div>Вторая шапка!Первый подвал!</div>"
+% extends 'first';
+<% content header => {%>
+Вторая шапка!
+<%}%>
 
-  @@ third.html.ep
-  %# "<div>Вторая шапка!Третий подвал!</div>"
-  % extends 'second';
-  <% content footer => {%>
-  Третий подвал!
-  <%}%>
+@@ third.html.ep
+%# "<div>Вторая шапка!Третий подвал!</div>"
+% extends 'second';
+<% content footer => {%>
+Третий подвал!
+<%}%>
 
 Эта цепочка может продолжаться и продолжаться, позволяя многократное использование шаблонов.
 
@@ -376,18 +377,18 @@ L<Mojolicious::Plugin::TagHelpers>.
 
 Шаблоны хранятся в файлах, по умолчанию в C<UTF-8>, но это легко можно изменить.
 
-  # Application
-  package MyApp;
-  use base 'Mojolicious';
+# Application
+package MyApp;
+use base 'Mojolicious';
 
-  sub startup {
-  my $self = shift;
+sub startup {
+my $self = shift;
 
-  # Другая кодировка
-  $self->renderer->encoding('koi8-r');
-  }
+# Другая кодировка
+$self->renderer->encoding('koi8-r');
+}
 
-  1;
+1;
 
 Все шаблоны из секции DATA имеют ту же кодировку, что и сам Perl-скрипт, поэтому не забывайте использовать прагму L<utf8> при необходимости.
 
@@ -396,29 +397,29 @@ L<Mojolicious::Plugin::TagHelpers>.
 Шаблоны, хранящиеся в файлах, имеют больший приоритет перед шаблонами из секции C<DATA>. Это позволяет вам включить набор шаблонов по умолчанию в ваше приложение, которые пользователь позже может кастомизировать.
 Команда C<inflate> запишет все шаблоны из секции C<DATA> в отдельные файлы в каталог C<templates>.
 
-  % ./myapp.pl inflate
+% ./myapp.pl inflate
 
 =head2 Кастомизация синтаксиса шаблонов
 
 Можно легко изменить весь синтаксис шаблонов, подключая расширение C<ep_renderer> с желаемой конфигурацией.
 
-  use Mojolicious::Lite;
+use Mojolicious::Lite;
 
-  plugin ep_renderer => {
-  name => 'mustache',
-  template => {
-  tag_start => '{{',
-  tag_end => '}}'
-  }
-  };
+plugin ep_renderer => {
+name => 'mustache',
+template => {
+tag_start => '{{',
+tag_end => '}}'
+}
+};
 
-  get '/' => 'index';
+get '/' => 'index';
 
-  app->start;
-  __DATA__
+app->start;
+__DATA__
 
-  @@ index.html.mustache
-  Привет {{= $name }}.
+@@ index.html.mustache
+Привет {{= $name }}.
 
 L<Mojo::Template> содержит весь список возможных опций.
 
@@ -426,58 +427,58 @@ L<Mojo::Template> содержит весь список возможных оп
 
 Добавлять и переопределять хелперы очень просто, а использовать их можно для чего угодно.
 
-  use Mojolicious::Lite;
+use Mojolicious::Lite;
 
-  app->renderer->add_helper(
-  echo => sub {
-  my ($self, $string) = @_;
-  return "ECHO: $string";
-  }
-  );
+app->renderer->add_helper(
+echo => sub {
+my ($self, $string) = @_;
+return "ECHO: $string";
+}
+);
 
-  get '/' => 'index';
+get '/' => 'index';
 
-  app->start;
-  __DATA__
+app->start;
+__DATA__
 
-  @@ index.html.ep
-  <%= echo 'lalala' %>
+@@ index.html.ep
+<%= echo 'lalala' %>
 
 =head2 Добавление своей системы шаблонов
-
+	
 
 
 Возможно вы предпочитаете другой шаблонизатор вместо C<ep>, все что вам нужно для его подключения - добавить новый обработчик C<handler>.
 
-  use Mojolicious::Lite;
+use Mojolicious::Lite;
 
-  app->renderer->add_handler(
-  mine => sub {
-  my ($r, $c, $output, $options) = @_;
+app->renderer->add_handler(
+mine => sub {
+my ($r, $c, $output, $options) = @_;
 
-  # Генерируем относительный путь к шаблонам
-  my $name = $r->template_name($options);
+# Генерируем относительный путь к шаблонам
+my $name = $r->template_name($options);
 
-  # Пытаемся найти подходящий шаблон в секции DATA
-  my $content = $r->get_inline_template($options, $name);
+# Пытаемся найти подходящий шаблон в секции DATA
+my $content = $r->get_inline_template($options, $name);
 
-  # Генерируем абсолютный путь к шаблонам
-  my $path = $r->template_path($options);
+# Генерируем абсолютный путь к шаблонам
+my $path = $r->template_path($options);
 
-  # Эту часть придется написать самому, в зависимости от шаблонизатора :)
-  ...
+# Эту часть придется написать самому, в зависимости от шаблонизатора :)
+...
 
-  # Передаем отработанный результат обратно в рендерер 
-  $$output = 'The rendered result!';
-  }
-  );
+# Передаем отработанный результат обратно в рендерер 
+$$output = 'The rendered result!';
+}
+);
 
-  get '/' => 'index';
+get '/' => 'index';
 
-  app->start;
-  __DATA__
+app->start;
+__DATA__
 
-  @@ index.html.mine
+@@ index.html.mine
 
 Так как большинство шаблонизаторов не поддерживают шаблоны в секции C<DATA> рендерер предоставляет методы для облегчения реализации такого функционала.
 
