@@ -1,5 +1,6 @@
-# Руководство по разработке
-=encoding utf8
+
+Руководство по разработке
+
 # Copyright (C) 2008-2010, Sebastian Riedel.
 
 =head1 НАЗВАНИЕ
